@@ -44,22 +44,58 @@ public class ControllerPatientCreate {
 
 		// TODO
 
-		// get a connection to the database
-		// validate the doctor's last name and obtain the doctor id
-		// insert the patient profile into the patient table
-		// obtain the generated id for the patient and update patient object
+		try (Connection con = getConnection()) {
+			// get a connection to the database
 
-		p.setId(123456);
+			// validate the doctor's last name and obtain the doctor id
+			PreparedStatement ps = con.prepareStatement(
+					"SELECT id FROM doctor WHERE last_name = ?");
+			ps.setString(1, p.getPrimaryName());
 
-		// display message and patient information
-		model.addAttribute("message", "Registration successful.");
-		model.addAttribute("patient", p);
-		return "patient_show";
+			ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				// if doctor not found, return error
+				model.addAttribute("message", "Error: Doctor with last name " + p.getPrimaryName() + " not found.");
+				model.addAttribute("patient", p);
+				return "patient_register";
+			}
+			int doctorId = rs.getInt("id");
 
-		// if there is error
-		// model.addAttribute("message",  <error message>);
-		// model.addAttribute("patient", p);
-		// return "patient_register";
+			// insert the patient profile into the patient table
+			ps = con.prepareStatement(
+					"INSERT INTO patient (ssn, first_name, last_name, birthdate, street, city, state, zip, doctor_id) " +
+							"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					Statement.RETURN_GENERATED_KEYS);
+
+			ps.setString(1, p.getSsn());
+			ps.setString(2, p.getFirst_name());
+			ps.setString(3, p.getLast_name());
+			ps.setString(4, p.getBirthdate());
+			ps.setString(5, p.getStreet());
+			ps.setString(6, p.getCity());
+			ps.setString(7, p.getState());
+			ps.setString(8, p.getZipcode());
+			ps.setInt(9, doctorId);
+
+			ps.executeUpdate();
+
+			// obtain the generated id for the patient and update patient object
+			rs = ps.getGeneratedKeys();
+			if (rs.next()) {
+				p.setId(rs.getInt(1));
+			}
+
+			// display message and patient information
+			model.addAttribute("message", "Registration successful.");
+			model.addAttribute("patient", p);
+			return "patient_show";
+
+		} catch (SQLException e) {
+			// if there is error
+			model.addAttribute("message", "SQL Error: " + e.getMessage());
+			model.addAttribute("patient", p);
+			return "patient_register";
+		}
 
 	}
 	
@@ -83,18 +119,46 @@ public class ControllerPatientCreate {
 
 		// TODO
 
-		// get a connection to the database
-		// using patient id and patient last name from patient object
-		// retrieve patient profile and doctor's last name
-		// update patient object with patient profile data
+		try (Connection con = getConnection()) {
+			// get a connection to the database
 
-		model.addAttribute("patient", p);
-		return "patient_show";
+			// using patient id and patient last name from patient object
+			// retrieve patient profile and doctor's last name
+			PreparedStatement ps = con.prepareStatement(
+					"SELECT p.*, d.last_name as doctor_name " +
+							"FROM patient p " +
+							"JOIN doctor d ON p.doctor_id = d.id " +
+							"WHERE p.id = ? AND p.last_name = ?");
 
-		// if there is error
-		// model.addAttribute("message", <error message>);
-		// model.addAttribute("patient", p);
-		// return "patient_get";
+			ps.setInt(1, p.getId());
+			ps.setString(2, p.getLast_name());
+
+			ResultSet rs = ps.executeQuery();
+			if (rs.next()) {
+				// update patient object with patient profile data
+				p.setFirst_name(rs.getString("first_name"));
+				p.setBirthdate(rs.getString("birthdate"));
+				p.setStreet(rs.getString("street"));
+				p.setCity(rs.getString("city"));
+				p.setState(rs.getString("state"));
+				p.setZipcode(rs.getString("zip"));
+				p.setPrimaryName(rs.getString("doctor_name"));
+
+				model.addAttribute("patient", p);
+				return "patient_show";
+			} else {
+				// if there is error
+				model.addAttribute("message", "Patient not found.");
+				model.addAttribute("patient", p);
+				return "patient_get";
+			}
+
+		} catch (SQLException e) {
+			// if there is error
+			model.addAttribute("message", "SQL Error: " + e.getMessage());
+			model.addAttribute("patient", p);
+			return "patient_get";
+		}
 	}
 
 	/*

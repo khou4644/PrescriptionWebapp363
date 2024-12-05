@@ -12,7 +12,6 @@
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="cst363_project" target="15" />
-      <module name="project2" target="15" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
